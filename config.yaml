@@ -1,0 +1,75 @@
+data_source:
+  provider: csqaq
+  endpoint: https://api.csqaq.com/api/v1/info/exchange_detail
+  request_timeout_seconds: 30
+  retries: 3
+  max_pages: 1000
+
+platforms:
+  - BUFF
+  - YYYP
+
+steam:
+  net_rate: 0.869
+
+filters:
+  volume:
+    enabled: true
+    min_today_volume: 100
+  price:
+    enabled: false
+    min: 1
+    max: 5000
+  ratio:
+    enabled: true
+    min: 0.50
+    max: 1.00
+  steam_buy_orders:
+    enabled: false
+    min: 0
+  platform_sell_orders:
+    enabled: false
+    min: 0
+
+index:
+  percentiles:
+    - 0.05
+    - 0.10
+    - 0.20
+  primary: 0.10
+  market_value_platform: BUFF
+  min_valid_items: 100
+
+history:
+  moving_averages:
+    - 7
+    - 30
+  percentile_windows:
+    - 30
+    - 90
+    - 365
+
+notification:
+  enabled: true
+  provider: ntfy
+  daily_report: false
+  default_priority: 3
+  thresholds:
+    - value: 0.73
+      label: "值得关注"
+      priority: 3
+    - value: 0.71
+      label: "较好机会"
+      priority: 4
+    - value: 0.69
+      label: "极低区间"
+      priority: 5
+  cooldown:
+    enabled: true
+    days: 3
+  notify_on_level_upgrade: true
+
+top_items:
+  enabled: true
+  count: 10
+
