@@ -7,6 +7,8 @@ import yaml
 
 
 class ConfigError(ValueError):
+    """配置文件缺失字段或字段值无效。"""
+
     pass
 
 
@@ -19,6 +21,9 @@ def _require(mapping: dict[str, Any], path: str, expected: type) -> Any:
     if expected is float:
         if isinstance(current, bool) or not isinstance(current, (int, float)):
             raise ConfigError(f"配置项 {path} 必须是数字")
+    elif expected is int:
+        if isinstance(current, bool) or not isinstance(current, int):
+            raise ConfigError(f"配置项 {path} 必须是整数")
     elif not isinstance(current, expected):
         raise ConfigError(f"配置项 {path} 必须是 {expected.__name__}")
     return current
@@ -39,8 +44,6 @@ def load_config(path: str | Path) -> dict[str, Any]:
 
 
 def validate_config(config: dict[str, Any]) -> None:
-    if _require(config, "data_source.provider", str) != "csqaq":
-        raise ConfigError("data_source.provider 目前只支持 csqaq")
     endpoint = _require(config, "data_source.endpoint", str)
     if not endpoint.startswith("https://"):
         raise ConfigError("data_source.endpoint 必须使用 https://")
@@ -48,11 +51,20 @@ def validate_config(config: dict[str, Any]) -> None:
     bind_endpoint = _require(config, "data_source.bind_ip_endpoint", str)
     if not bind_endpoint.startswith("https://"):
         raise ConfigError("data_source.bind_ip_endpoint 必须使用 https://")
-    for path in ("data_source.request_timeout_seconds", "data_source.retries", "data_source.max_pages"):
-        if _require(config, path, float) <= 0:
-            raise ConfigError(f"配置项 {path} 必须大于 0")
+    if _require(config, "data_source.request_timeout_seconds", float) <= 0:
+        raise ConfigError("data_source.request_timeout_seconds 必须大于 0")
+    for path in ("data_source.retries", "data_source.max_pages"):
+        if _require(config, path, int) <= 0:
+            raise ConfigError(f"配置项 {path} 必须是正整数")
+    if _require(config, "data_source.request_interval_seconds", float) < 0:
+        raise ConfigError("data_source.request_interval_seconds 不能为负数")
     platforms = _require(config, "platforms", list)
-    if not platforms or len(platforms) != len(set(platforms)) or not set(platforms).issubset({"BUFF", "YYYP"}):
+    if (
+        not platforms
+        or any(not isinstance(platform, str) for platform in platforms)
+        or len(platforms) != len(set(platforms))
+        or not set(platforms).issubset({"BUFF", "YYYP"})
+    ):
         raise ConfigError("platforms 必须是 BUFF/YYYP 的非空列表")
     net_rate = float(_require(config, "steam.net_rate", float))
     if not 0 < net_rate <= 1:
@@ -74,25 +86,18 @@ def validate_config(config: dict[str, Any]) -> None:
         raise ConfigError("index.percentiles 必须是 (0, 1] 内的数字列表")
     if not {0.05, 0.10, 0.20}.issubset({float(q) for q in percentiles}):
         raise ConfigError("index.percentiles 必须至少包含 0.05、0.10、0.20")
-    primary = float(_require(config, "index.primary", float))
-    if primary not in [float(q) for q in percentiles]:
-        raise ConfigError("index.primary 必须包含在 index.percentiles 中")
-    if _require(config, "index.market_value_platform", str) != "BUFF":
-        raise ConfigError("首版 index.market_value_platform 必须为 BUFF")
-    if _require(config, "index.min_valid_items", float) <= 0:
-        raise ConfigError("index.min_valid_items 必须大于 0")
+    if _require(config, "index.min_valid_items", int) <= 0:
+        raise ConfigError("index.min_valid_items 必须是正整数")
     for path in ("history.moving_averages", "history.percentile_windows"):
         values = _require(config, path, list)
         if not values or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in values):
             raise ConfigError(f"{path} 必须是正整数列表")
     _require(config, "notification.enabled", bool)
-    if _require(config, "notification.provider", str) != "ntfy":
-        raise ConfigError("notification.provider 目前只支持 ntfy")
     special_percentile = float(_require(config, "notification.special_percentile", float))
     if not 0 < special_percentile <= 100:
         raise ConfigError("notification.special_percentile 必须在 (0, 100] 内")
     if not {30, 180}.issubset(set(config["history"]["percentile_windows"])):
         raise ConfigError("特别提醒需要 history.percentile_windows 包含 30 和 180")
     _require(config, "top_items.enabled", bool)
-    if _require(config, "top_items.count", float) < 0:
-        raise ConfigError("top_items.count 不能为负数")
+    if _require(config, "top_items.count", int) < 0:
+        raise ConfigError("top_items.count 必须是非负整数")

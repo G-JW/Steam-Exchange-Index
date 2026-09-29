@@ -51,6 +51,7 @@ def test_unexpected_response_is_rejected(monkeypatch) -> None:
 
 def test_platform_order_is_normalized_for_api(config: dict) -> None:
     config["platforms"] = ["YYYP", "BUFF"]
+    config["data_source"]["request_interval_seconds"] = 0
     session = Session([
         Response({"code": 200, "msg": "Success", "data": "bound"}),
         Response({"code": 200, "data": [{"id": 1, "name": "A"}]}),

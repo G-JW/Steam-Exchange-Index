@@ -6,6 +6,8 @@ from .models import MarketItem
 
 
 def enrich_and_filter(items: list[MarketItem], config: dict) -> tuple[list[MarketItem], int]:
+    """过滤无效商品，并补充最低平台、挂刀比例和 BUFF 市值。"""
+
     result: list[MarketItem] = []
     skipped = 0
     filters = config["filters"]
@@ -33,8 +35,10 @@ def enrich_and_filter(items: list[MarketItem], config: dict) -> tuple[list[Marke
         if not candidates:
             skipped += 1
             continue
+        # 同一饰品选择启用平台中的最低购买价。
         platform, price, _ = min(candidates, key=lambda candidate: candidate[1])
         ratio = price / (item.steam_buy_price * net_rate)
+        # v1.0 固定使用 BUFF 售价 × BUFF 在售量衡量市场价值。
         market_value = item.buff_sell_price * item.buff_sell_num
         if not math.isfinite(ratio) or ratio <= 0 or not math.isfinite(market_value) or market_value <= 0:
             skipped += 1
@@ -54,4 +58,3 @@ def enrich_and_filter(items: list[MarketItem], config: dict) -> tuple[list[Marke
         item.market_value = market_value
         result.append(item)
     return result, skipped
-

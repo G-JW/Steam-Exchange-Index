@@ -10,10 +10,14 @@ from .models import MarketItem, optional_float
 
 
 class CollectionError(RuntimeError):
+    """CSQAQ 请求失败或响应无法解析。"""
+
     pass
 
 
 def normalize_item(raw: dict[str, Any]) -> MarketItem | None:
+    """将 CSQAQ 原始字段转换为项目内部统一模型。"""
+
     if not isinstance(raw, dict):
         return None
     item_id = raw.get("id")
@@ -57,10 +61,9 @@ def _request_page(session: requests.Session, endpoint: str, token: str, payload:
 
 
 def bind_local_ip(session: requests.Session, endpoint: str, token: str, timeout: float) -> None:
-    """Bind the caller's current public IP before authenticated data requests.
+    """把当前运行环境的公网 IP 绑定到 CSQAQ Token。
 
-    CSQAQ limits this endpoint to one request every 30 seconds, so this is
-    intentionally a single request rather than using the normal retry loop.
+    该接口限制 30 秒一次，因此这里刻意只请求一次，不走普通重试循环。
     """
     try:
         response = session.post(
@@ -79,6 +82,8 @@ def bind_local_ip(session: requests.Session, endpoint: str, token: str, timeout:
 
 
 def fetch_items(config: dict[str, Any], token: str, session: requests.Session | None = None) -> tuple[list[MarketItem], dict[str, int]]:
+    """分页获取并标准化全部候选饰品。"""
+
     source = config["data_source"]
     platforms = [platform for platform in ("BUFF", "YYYP") if platform in config["platforms"]]
     volume = config["filters"]["volume"]
@@ -90,6 +95,7 @@ def fetch_items(config: dict[str, Any], token: str, session: requests.Session | 
     if volume["enabled"]:
         payload_base["turnover"] = volume["min_today_volume"]
     client = session or requests.Session()
+    request_interval = float(source["request_interval_seconds"])
     if source["bind_local_ip"]:
         bind_local_ip(
             client,
@@ -97,9 +103,13 @@ def fetch_items(config: dict[str, Any], token: str, session: requests.Session | 
             token,
             float(source["request_timeout_seconds"]),
         )
+        if request_interval:
+            time.sleep(request_interval)
     raw_count = parsed_count = skipped_count = 0
     items: list[MarketItem] = []
     for page in range(1, int(source["max_pages"]) + 1):
+        if page > 1 and request_interval:
+            time.sleep(request_interval)
         payload = {**payload_base, "page_index": page}
         rows = _request_page(
             client,

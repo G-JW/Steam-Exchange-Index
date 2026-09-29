@@ -14,6 +14,8 @@ REQUIRED_HISTORY_FIELDS = {"date", "run_timestamp", "index_5", "index_10", "inde
 
 
 def load_history(path: str | Path) -> list[dict[str, str]]:
+    """读取历史；兼容早期版本多出的统计列。"""
+
     history_path = Path(path)
     if not history_path.exists() or history_path.stat().st_size == 0:
         return []
@@ -38,6 +40,8 @@ def _valid_previous(rows: list[dict[str, str]], current_date: str) -> list[tuple
 
 
 def calculate_statistics(rows: list[dict[str, str]], current_date: str, current_index: float, moving_averages: list[int], percentile_windows: list[int]) -> dict[str, float | None]:
+    """计算移动平均及当前 I10 的历史低位百分比。"""
+
     previous = _valid_previous(rows, current_date)
     stats: dict[str, float | None] = {}
     for window in moving_averages:
@@ -45,6 +49,7 @@ def calculate_statistics(rows: list[dict[str, str]], current_date: str, current_
         samples = prior + [current_index]
         stats[f"ma{window}"] = sum(samples) / window if len(samples) == window else None
     for window in percentile_windows:
+        # 当前值越低于更多历史日期，百分比越高，代表挂刀折扣越突出。
         samples = [value for _, value in previous[-window:]]
         stats[f"p{window}"] = (sum(value > current_index for value in samples) / window * 100) if len(samples) == window else None
     return stats
@@ -59,6 +64,8 @@ def _format(value: Any) -> str:
 
 
 def upsert_history(path: str | Path, row: dict[str, Any]) -> None:
+    """按日期覆盖写入，保证同一天最多一条记录。"""
+
     history_path = Path(path)
     history_path.parent.mkdir(parents=True, exist_ok=True)
     rows = load_history(history_path)

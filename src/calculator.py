@@ -6,10 +6,14 @@ from .models import MarketItem
 
 
 class CalculationError(RuntimeError):
+    """输入数据不足或无法生成有限指数。"""
+
     pass
 
 
 def calculate_indexes(items: list[MarketItem], percentiles: list[float]) -> dict[float, float]:
+    """计算指定市值覆盖比例下的加权平均挂刀指数。"""
+
     if not items:
         raise CalculationError("没有有效饰品可计算指数")
     ordered = sorted(items, key=lambda item: float(item.ratio))
@@ -21,6 +25,7 @@ def calculate_indexes(items: list[MarketItem], percentiles: list[float]) -> dict
         target = float(percentile) * total_value
         selected_value = weighted_sum = 0.0
         for item in ordered:
+            # 边界商品完整计入，不按超出目标的市值比例拆分。
             value = float(item.market_value)
             selected_value += value
             weighted_sum += float(item.ratio) * value
@@ -35,4 +40,3 @@ def calculate_indexes(items: list[MarketItem], percentiles: list[float]) -> dict
 
 def top_items(items: list[MarketItem], count: int) -> list[MarketItem]:
     return sorted(items, key=lambda item: float(item.ratio))[:count]
-

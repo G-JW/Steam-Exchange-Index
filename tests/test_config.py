@@ -40,3 +40,10 @@ def test_special_notification_requires_both_history_windows(config: dict) -> Non
     bad["history"]["percentile_windows"] = [30]
     with pytest.raises(ConfigError, match="30 和 180"):
         validate_config(bad)
+
+
+def test_count_fields_must_be_integers(config: dict) -> None:
+    bad = copy.deepcopy(config)
+    bad["top_items"]["count"] = 2.5
+    with pytest.raises(ConfigError, match="整数"):
+        validate_config(bad)

@@ -1,2 +1,3 @@
-"""Steam Exchange Index monitor."""
+"""Steam 挂刀指数监控工具。"""
 
+__version__ = "1.0.0"

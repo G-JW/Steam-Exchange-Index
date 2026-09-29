@@ -8,21 +8,24 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from src import __version__
 from src.calculator import CalculationError, calculate_indexes, top_items
 from src.collector import CollectionError, fetch_items
 from src.config import ConfigError, load_config
 from src.filters import enrich_and_filter
 from src.history import calculate_statistics, load_history, make_history_row, upsert_history
-from src.notifier import NotificationError, format_message, is_special_alert, post_ntfy, resolve_ntfy_target
+from src.notifier import NotificationError, format_message, is_special_alert, post_ntfy
 
 
 ROOT = Path(__file__).resolve().parent
 HISTORY_PATH = ROOT / "data" / "index_history.csv"
+PRIMARY_PERCENTILE = 0.10
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Steam 挂刀指数监控")
     parser.add_argument("--config", default=str(ROOT / "config.yaml"), help="配置文件路径")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser.parse_args()
 
 
@@ -42,6 +45,27 @@ def print_summary(indexes: dict[float, float], valid_count: int, minimum: float,
             print(f"{number:2}. {item.name} | ratio={item.ratio:.4f} | {item.best_platform}={item.best_platform_price:.2f} | Steam买价={item.steam_buy_price:.2f} | 今日成交={item.today_volume:g}")
 
 
+def send_notifications(config: dict, indexes: dict[float, float], stats: dict[str, float | None]) -> None:
+    """固定发送日报；历史位置达标时额外发送特别提醒。"""
+
+    notification = config["notification"]
+    if not notification["enabled"]:
+        return
+
+    daily_target = os.environ.get("NTFY_DAILY_URL", "").strip()
+    if not daily_target:
+        raise NotificationError("缺少环境变量 NTFY_DAILY_URL")
+
+    message = format_message(indexes)
+    post_ntfy(daily_target, "Steam 挂刀指数日报", message, priority=3)
+    logging.info("ntfy 每日报告发送成功")
+
+    if is_special_alert(stats, float(notification["special_percentile"])):
+        alert_target = os.environ.get("NTFY_ALERT_URL", "").strip() or daily_target
+        post_ntfy(alert_target, "Steam 挂刀指数 · 30/180日历史低位", message, priority=5)
+        logging.info("ntfy 特别提醒发送成功")
+
+
 def run() -> int:
     args = parse_args()
     try:
@@ -58,13 +82,12 @@ def run() -> int:
             raise CalculationError(f"有效饰品仅 {len(valid)} 件，低于要求的 {minimum_required} 件")
         percentiles = [float(value) for value in config["index"]["percentiles"]]
         indexes = calculate_indexes(valid, percentiles)
-        primary = float(config["index"]["primary"])
         minimum = min(float(item.ratio) for item in valid)
         history = load_history(HISTORY_PATH)
         stats = calculate_statistics(
             history,
             run_time.date().isoformat(),
-            indexes[primary],
+            indexes[PRIMARY_PERCENTILE],
             config["history"]["moving_averages"],
             config["history"]["percentile_windows"],
         )
@@ -72,23 +95,7 @@ def run() -> int:
         upsert_history(HISTORY_PATH, make_history_row(run_time, indexes, len(valid), minimum, stats))
         print_summary(indexes, len(valid), minimum, stats, candidates)
 
-        notification = config["notification"]
-        if not notification["enabled"]:
-            return 0
-        daily_url_value = os.environ.get("NTFY_DAILY_URL", "").strip()
-        if not daily_url_value:
-            raise NotificationError("缺少环境变量 NTFY_DAILY_URL")
-        resolve_ntfy_target(daily_url_value, "NTFY_DAILY_URL")
-        message = format_message(indexes)
-        post_ntfy(daily_url_value, "Steam 挂刀指数日报", message, priority=3)
-        logging.info("ntfy 每日报告发送成功")
-
-        special_threshold = float(notification["special_percentile"])
-        if is_special_alert(stats, special_threshold):
-            alert_url_value = os.environ.get("NTFY_ALERT_URL", "").strip() or daily_url_value
-            resolve_ntfy_target(alert_url_value, "NTFY_ALERT_URL")
-            post_ntfy(alert_url_value, "Steam 挂刀指数 · 30/180日历史低位", message, priority=5)
-            logging.info("ntfy 特别提醒发送成功")
+        send_notifications(config, indexes, stats)
         return 0
     except (ConfigError, CollectionError, CalculationError, ValueError) as exc:
         logging.error("任务失败: %s", exc)
