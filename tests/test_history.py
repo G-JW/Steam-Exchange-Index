@@ -36,3 +36,15 @@ def test_history_upsert_is_idempotent(tmp_path) -> None:
     assert len(rows) == 1
     assert float(rows[0]["index_10"]) == 0.69
 
+
+def test_legacy_history_schema_is_migrated_on_write(tmp_path) -> None:
+    path = tmp_path / "legacy.csv"
+    path.write_text(
+        "date,run_timestamp,index_5,index_10,index_20,valid_items,min_ratio,ma7,ma30,p30,p90,p365\n"
+        "2026-09-29,2026-09-29T23:40:00+08:00,0.68,0.70,0.72,100,0.65,,,,,\n",
+        encoding="utf-8",
+    )
+    rows = load_history(path)
+    assert rows[0]["p180"] == ""
+    upsert_history(path, {**rows[0], "p180": 91.0})
+    assert "p180" in path.read_text(encoding="utf-8").splitlines()[0]

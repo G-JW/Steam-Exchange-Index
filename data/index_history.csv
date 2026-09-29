@@ -1,2 +1,2 @@
-date,run_timestamp,index_5,index_10,index_20,valid_items,min_ratio,ma7,ma30,p30,p90,p365
-2026-09-30,2026-09-30T00:14:46+08:00,0.7210936,0.75374939,0.79004645,2134,0.50032521,,,,,
+date,run_timestamp,index_5,index_10,index_20,valid_items,min_ratio,ma7,ma30,p30,p180
+2026-09-30,2026-09-30T01:21:13+08:00,0.72201821,0.75449985,0.79058114,2133,0.50032521,,,,

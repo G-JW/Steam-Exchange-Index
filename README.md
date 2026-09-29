@@ -27,11 +27,14 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 export CSQAQ_API_TOKEN="你的 CSQAQ Token"
-export NTFY_URL="https://ntfy.sh/你的私有主题"
+export NTFY_DAILY_URL="https://ntfy.sh/你的日报私有主题"
+export NTFY_ALERT_URL="https://ntfy.sh/你的特别提醒私有主题"
 python main.py
 ```
 
-`CSQAQ_API_TOKEN` 必填。`NTFY_URL` 只有在本次运行确实需要通知时才必填。也可自行使用未提交的 `.env` 文件管理变量，但程序不会自动读取它。
+`CSQAQ_API_TOKEN` 和 `NTFY_DAILY_URL` 必填。`NTFY_ALERT_URL` 未设置时，特别提醒会发送到日报频道。ntfy 目标可以填写 ntfy.sh topic 名，也可以填写完整的 `https://` topic URL。
+
+macOS 本地可直接双击仓库根目录下被 Git 忽略的 `run_local.command`。该文件用于保存本机明文凭据，不会被提交；首次使用前需要在文件内填入两个 ntfy URL。
 
 运行测试：
 
@@ -49,7 +52,7 @@ pytest -q
 - `filters`：成交量以及可选的价格、比例、求购量和在售量过滤。
 - `index`：指数覆盖比例、主指标和最少有效饰品数量。
 - `history`：移动平均和历史位置窗口。
-- `notification`：阈值、priority、日报与冷却规则。
+- `notification.special_percentile`：特别提醒的历史位置门槛，默认 90%。
 - `top_items.count`：日志及通知中的候选数量。
 
 配置错误、API 失败、有效饰品不足或指数无效时，程序以非零状态退出且不写当天历史。通知失败发生在指数成功保存之后，程序返回状态码 2 并保留结果。
@@ -66,20 +69,19 @@ pytest -q
 | `valid_items` | 有效饰品数 |
 | `min_ratio` | 当日最低比例 |
 | `ma7/ma30` | 包含当日的移动平均，样本不足留空 |
-| `p30/p90/p365` | 当前 I10 低于相应完整历史窗口中多少比例的日期，当前日不参与比较 |
-
-通知冷却状态保存在 `data/notification_state.json`，不含凭据。
+| `p30/p180` | 当前 I10 低于相应完整历史窗口中多少比例的日期，当前日不参与比较 |
 
 ## ntfy
 
-将完整 topic URL 放进 `NTFY_URL`。默认 `daily_report: true`，因此每次成功计算后都会发送通知。当 I10 同时满足多个阈值时，只选择数值最低、级别最高的一项。同级阈值提醒在冷却期内不会重复；若阈值提醒处于冷却期，本次仍会发送普通日报。若 `notify_on_level_upgrade` 开启，更高级别可绕过冷却并发送对应的高优先级提醒。
+每次成功计算后都会向 `NTFY_DAILY_URL` 发送日报，正文严格只包含 I5、I10、I20。当主指标 I10 同时低于过去 30 天和 180 天中至少 90% 的记录时，再向 `NTFY_ALERT_URL` 发送特别提醒，正文同样只包含三个指数。历史样本不足 180 天时不会触发特别提醒。没有固定指数阈值、提醒分级或冷却状态。
 
 ## GitHub Actions
 
 在仓库 Settings → Secrets and variables → Actions 中创建：
 
 - `CSQAQ_API_TOKEN`
-- `NTFY_URL`（启用通知时）
+- `NTFY_DAILY_URL`
+- `NTFY_ALERT_URL`（可选；未设置时使用日报频道）
 
 工作流每天 UTC 15:40（北京时间约 23:40）执行，也可在 Actions 页面手动触发。它先安装依赖和运行测试，再运行监控；只有 `data/` 变化时才提交并推送，提交信息为 `data: update daily exchange index`。
 

@@ -88,26 +88,11 @@ def validate_config(config: dict[str, Any]) -> None:
     _require(config, "notification.enabled", bool)
     if _require(config, "notification.provider", str) != "ntfy":
         raise ConfigError("notification.provider 目前只支持 ntfy")
-    _require(config, "notification.daily_report", bool)
-    default_priority = _require(config, "notification.default_priority", float)
-    if isinstance(default_priority, float) and not default_priority.is_integer() or not 1 <= int(default_priority) <= 5:
-        raise ConfigError("notification.default_priority 必须是 1..5 的整数")
-    thresholds = _require(config, "notification.thresholds", list)
-    for threshold in thresholds:
-        if not isinstance(threshold, dict) or not {"value", "label", "priority"} <= threshold.keys():
-            raise ConfigError("每个通知阈值必须包含 value/label/priority")
-        if not isinstance(threshold["value"], (int, float)) or not 0 < float(threshold["value"]) <= 2:
-            raise ConfigError("通知阈值 value 无效")
-        if not isinstance(threshold["label"], str) or not threshold["label"]:
-            raise ConfigError("通知阈值 label 无效")
-        if not isinstance(threshold["priority"], int) or not 1 <= threshold["priority"] <= 5:
-            raise ConfigError("ntfy priority 必须在 1..5 内")
-    if len({float(t["value"]) for t in thresholds}) != len(thresholds):
-        raise ConfigError("通知阈值 value 不得重复")
-    _require(config, "notification.cooldown.enabled", bool)
-    if _require(config, "notification.cooldown.days", float) < 0:
-        raise ConfigError("通知 cooldown 天数不能为负数")
-    _require(config, "notification.notify_on_level_upgrade", bool)
+    special_percentile = float(_require(config, "notification.special_percentile", float))
+    if not 0 < special_percentile <= 100:
+        raise ConfigError("notification.special_percentile 必须在 (0, 100] 内")
+    if not {30, 180}.issubset(set(config["history"]["percentile_windows"])):
+        raise ConfigError("特别提醒需要 history.percentile_windows 包含 30 和 180")
     _require(config, "top_items.enabled", bool)
     if _require(config, "top_items.count", float) < 0:
         raise ConfigError("top_items.count 不能为负数")

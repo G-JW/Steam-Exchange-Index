@@ -13,12 +13,11 @@ from src.collector import CollectionError, fetch_items
 from src.config import ConfigError, load_config
 from src.filters import enrich_and_filter
 from src.history import calculate_statistics, load_history, make_history_row, upsert_history
-from src.notifier import NotificationError, format_message, load_state, post_ntfy, save_state, select_level, should_notify
+from src.notifier import NotificationError, format_message, is_special_alert, post_ntfy, resolve_ntfy_target
 
 
 ROOT = Path(__file__).resolve().parent
 HISTORY_PATH = ROOT / "data" / "index_history.csv"
-STATE_PATH = ROOT / "data" / "notification_state.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,7 +32,7 @@ def print_summary(indexes: dict[float, float], valid_count: int, minimum: float,
         print(f"I{int(percentile * 100)}: {value:.4f}")
     print(f"有效饰品: {valid_count}")
     print(f"最低挂刀比例: {minimum:.4f}")
-    for key in ("ma7", "ma30", "p30", "p90", "p365"):
+    for key in ("ma7", "ma30", "p30", "p180"):
         if stats.get(key) is not None:
             suffix = "%" if key.startswith("p") else ""
             print(f"{key.upper()}: {stats[key]:.4f}{suffix}")
@@ -76,38 +75,20 @@ def run() -> int:
         notification = config["notification"]
         if not notification["enabled"]:
             return 0
-        level = select_level(indexes[primary], notification["thresholds"])
-        title = "Steam 挂刀指数日报"
-        priority = int(notification.get("default_priority", 3))
-        send = bool(notification["daily_report"])
-        threshold_send = False
-        level_rank = 0
-        if level:
-            level_rank, threshold = level
-            threshold_send = True
-            cooldown = notification["cooldown"]
-            if cooldown["enabled"]:
-                threshold_send = should_notify(
-                    run_time.date(),
-                    level_rank,
-                    load_state(STATE_PATH),
-                    int(cooldown["days"]),
-                    bool(notification["notify_on_level_upgrade"]),
-                )
-            if threshold_send:
-                title = f"Steam 挂刀指数 · {threshold['label']}"
-                priority = int(threshold["priority"])
-                send = True
-        if not send:
-            logging.info("通知条件未满足或处于冷却期，跳过 ntfy")
-            return 0
-        ntfy_url = os.environ.get("NTFY_URL", "").strip()
-        if not ntfy_url:
-            raise NotificationError("需要发送通知，但缺少环境变量 NTFY_URL")
-        post_ntfy(ntfy_url, title, format_message(run_time.date(), indexes, len(valid), stats, candidates), priority)
-        if threshold_send:
-            save_state(STATE_PATH, {"last_notification_date": run_time.date().isoformat(), "last_level": level_rank, "last_index": indexes[primary]})
-        logging.info("ntfy 通知发送成功")
+        daily_url_value = os.environ.get("NTFY_DAILY_URL", "").strip()
+        if not daily_url_value:
+            raise NotificationError("缺少环境变量 NTFY_DAILY_URL")
+        resolve_ntfy_target(daily_url_value, "NTFY_DAILY_URL")
+        message = format_message(indexes)
+        post_ntfy(daily_url_value, "Steam 挂刀指数日报", message, priority=3)
+        logging.info("ntfy 每日报告发送成功")
+
+        special_threshold = float(notification["special_percentile"])
+        if is_special_alert(stats, special_threshold):
+            alert_url_value = os.environ.get("NTFY_ALERT_URL", "").strip() or daily_url_value
+            resolve_ntfy_target(alert_url_value, "NTFY_ALERT_URL")
+            post_ntfy(alert_url_value, "Steam 挂刀指数 · 30/180日历史低位", message, priority=5)
+            logging.info("ntfy 特别提醒发送成功")
         return 0
     except (ConfigError, CollectionError, CalculationError, ValueError) as exc:
         logging.error("任务失败: %s", exc)

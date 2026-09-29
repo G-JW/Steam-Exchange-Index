@@ -48,28 +48,12 @@ history:
     - 30
   percentile_windows:
     - 30
-    - 90
-    - 365
+    - 180
 
 notification:
   enabled: true
   provider: ntfy
-  daily_report: true
-  default_priority: 3
-  thresholds:
-    - value: 0.73
-      label: "值得关注"
-      priority: 3
-    - value: 0.71
-      label: "较好机会"
-      priority: 4
-    - value: 0.69
-      label: "极低区间"
-      priority: 5
-  cooldown:
-    enabled: true
-    days: 3
-  notify_on_level_upgrade: true
+  special_percentile: 90
 
 top_items:
   enabled: true

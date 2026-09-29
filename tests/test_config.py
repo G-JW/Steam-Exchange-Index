@@ -35,5 +35,8 @@ def test_bind_endpoint_must_use_https(config: dict) -> None:
         validate_config(bad)
 
 
-def test_daily_report_is_enabled_by_default(config: dict) -> None:
-    assert config["notification"]["daily_report"] is True
+def test_special_notification_requires_both_history_windows(config: dict) -> None:
+    bad = copy.deepcopy(config)
+    bad["history"]["percentile_windows"] = [30]
+    with pytest.raises(ConfigError, match="30 和 180"):
+        validate_config(bad)

@@ -9,7 +9,8 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 
-FIELDNAMES = ["date", "run_timestamp", "index_5", "index_10", "index_20", "valid_items", "min_ratio", "ma7", "ma30", "p30", "p90", "p365"]
+FIELDNAMES = ["date", "run_timestamp", "index_5", "index_10", "index_20", "valid_items", "min_ratio", "ma7", "ma30", "p30", "p180"]
+REQUIRED_HISTORY_FIELDS = {"date", "run_timestamp", "index_5", "index_10", "index_20", "valid_items", "min_ratio"}
 
 
 def load_history(path: str | Path) -> list[dict[str, str]]:
@@ -18,9 +19,9 @@ def load_history(path: str | Path) -> list[dict[str, str]]:
         return []
     with history_path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
-        if reader.fieldnames != FIELDNAMES:
-            raise ValueError(f"历史 CSV 字段不匹配，应为: {','.join(FIELDNAMES)}")
-        return list(reader)
+        if not reader.fieldnames or not REQUIRED_HISTORY_FIELDS.issubset(reader.fieldnames):
+            raise ValueError(f"历史 CSV 缺少必要字段: {','.join(sorted(REQUIRED_HISTORY_FIELDS))}")
+        return [{field: row.get(field, "") for field in FIELDNAMES} for row in reader]
 
 
 def _valid_previous(rows: list[dict[str, str]], current_date: str) -> list[tuple[str, float]]:
@@ -66,7 +67,7 @@ def upsert_history(path: str | Path, row: dict[str, Any]) -> None:
     rows.append(normalized)
     rows.sort(key=lambda existing: existing["date"])
     with NamedTemporaryFile("w", newline="", encoding="utf-8", dir=history_path.parent, delete=False) as handle:
-        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
         temporary = Path(handle.name)
@@ -85,7 +86,5 @@ def make_history_row(run_time: datetime, indexes: dict[float, float], valid_item
         "ma7": stats.get("ma7"),
         "ma30": stats.get("ma30"),
         "p30": stats.get("p30"),
-        "p90": stats.get("p90"),
-        "p365": stats.get("p365"),
+        "p180": stats.get("p180"),
     }
-
