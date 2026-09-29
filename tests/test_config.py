@@ -26,3 +26,10 @@ def test_duplicate_platforms_rejected(config: dict) -> None:
     bad["platforms"] = ["BUFF", "BUFF"]
     with pytest.raises(ConfigError, match="platforms"):
         validate_config(bad)
+
+
+def test_bind_endpoint_must_use_https(config: dict) -> None:
+    bad = copy.deepcopy(config)
+    bad["data_source"]["bind_ip_endpoint"] = "http://example.invalid"
+    with pytest.raises(ConfigError, match="bind_ip_endpoint"):
+        validate_config(bad)

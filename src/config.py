@@ -44,6 +44,10 @@ def validate_config(config: dict[str, Any]) -> None:
     endpoint = _require(config, "data_source.endpoint", str)
     if not endpoint.startswith("https://"):
         raise ConfigError("data_source.endpoint 必须使用 https://")
+    _require(config, "data_source.bind_local_ip", bool)
+    bind_endpoint = _require(config, "data_source.bind_ip_endpoint", str)
+    if not bind_endpoint.startswith("https://"):
+        raise ConfigError("data_source.bind_ip_endpoint 必须使用 https://")
     for path in ("data_source.request_timeout_seconds", "data_source.retries", "data_source.max_pages"):
         if _require(config, path, float) <= 0:
             raise ConfigError(f"配置项 {path} 必须大于 0")

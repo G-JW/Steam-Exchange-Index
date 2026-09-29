@@ -1,6 +1,8 @@
 data_source:
   provider: csqaq
   endpoint: https://api.csqaq.com/api/v1/info/exchange_detail
+  bind_local_ip: true
+  bind_ip_endpoint: https://api.csqaq.com/api/v1/sys/bind_local_ip
   request_timeout_seconds: 30
   retries: 3
   max_pages: 1000
@@ -72,4 +74,3 @@ notification:
 top_items:
   enabled: true
   count: 10
-

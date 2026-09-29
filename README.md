@@ -6,6 +6,8 @@
 
 ## 工作原理
 
+每次采集前，程序会调用 CSQAQ 的 `bind_local_ip` 接口，将当前运行环境的出口 IP 绑定到 API Token。这样 GitHub 托管 Runner 即使每次使用动态 IP，也能在同一次任务中先更新白名单再读取行情。该行为可通过 `data_source.bind_local_ip` 开关控制。
+
 每件饰品在启用平台中的挂刀比例为：
 
 ```text
@@ -41,7 +43,7 @@ pytest -q
 
 所有非敏感行为均在 `config.yaml`：
 
-- `data_source`：CSQAQ endpoint、超时、重试次数和分页安全上限。
+- `data_source`：CSQAQ 行情及 IP 绑定 endpoint、白名单开关、超时、重试次数和分页安全上限。
 - `platforms`：启用 `BUFF`、`YYYP` 中的一个或两个。
 - `steam.net_rate`：Steam 实际到账系数，默认 `0.869`。
 - `filters`：成交量以及可选的价格、比例、求购量和在售量过滤。
@@ -87,4 +89,3 @@ pytest -q
 - GitHub Actions 的定时任务可能延迟。
 - 程序不保存单品历史，也不执行任何自动购买或交易。
 - 当前市场价值固定使用 BUFF 售价和在售数量。
-

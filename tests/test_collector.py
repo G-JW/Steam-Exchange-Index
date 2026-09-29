@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import requests
 
-from src.collector import CollectionError, _request_page, fetch_items, normalize_item
+from src.collector import CollectionError, _request_page, bind_local_ip, fetch_items, normalize_item
 
 
 class Response:
@@ -52,9 +52,16 @@ def test_unexpected_response_is_rejected(monkeypatch) -> None:
 def test_platform_order_is_normalized_for_api(config: dict) -> None:
     config["platforms"] = ["YYYP", "BUFF"]
     session = Session([
+        Response({"code": 200, "msg": "Success", "data": "bound"}),
         Response({"code": 200, "data": [{"id": 1, "name": "A"}]}),
         Response({"code": 200, "data": []}),
     ])
     items, counts = fetch_items(config, "secret", session=session)
     assert len(items) == 1
     assert counts["fetched"] == 1
+
+
+def test_bind_local_ip_rejects_business_error() -> None:
+    session = Session([Response({"code": 401, "msg": "not allowed", "data": ""})])
+    with pytest.raises(CollectionError, match="not allowed"):
+        bind_local_ip(session, "https://example.invalid/bind", "secret", 1)

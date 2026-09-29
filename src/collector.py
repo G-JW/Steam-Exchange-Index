@@ -56,6 +56,28 @@ def _request_page(session: requests.Session, endpoint: str, token: str, payload:
     raise CollectionError(f"CSQAQ 请求失败（已重试 {retries} 次）: {last_error}")
 
 
+def bind_local_ip(session: requests.Session, endpoint: str, token: str, timeout: float) -> None:
+    """Bind the caller's current public IP before authenticated data requests.
+
+    CSQAQ limits this endpoint to one request every 30 seconds, so this is
+    intentionally a single request rather than using the normal retry loop.
+    """
+    try:
+        response = session.post(
+            endpoint,
+            headers={"ApiToken": token},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        body = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise CollectionError(f"CSQAQ 白名单 IP 绑定请求失败: {type(exc).__name__}") from exc
+    if not isinstance(body, dict) or body.get("code") != 200:
+        message = body.get("msg") if isinstance(body, dict) else "非对象响应"
+        raise CollectionError(f"CSQAQ 白名单 IP 绑定失败: {message}")
+    logging.info("CSQAQ 白名单 IP 绑定成功")
+
+
 def fetch_items(config: dict[str, Any], token: str, session: requests.Session | None = None) -> tuple[list[MarketItem], dict[str, int]]:
     source = config["data_source"]
     platforms = [platform for platform in ("BUFF", "YYYP") if platform in config["platforms"]]
@@ -68,6 +90,13 @@ def fetch_items(config: dict[str, Any], token: str, session: requests.Session | 
     if volume["enabled"]:
         payload_base["turnover"] = volume["min_today_volume"]
     client = session or requests.Session()
+    if source["bind_local_ip"]:
+        bind_local_ip(
+            client,
+            source["bind_ip_endpoint"],
+            token,
+            float(source["request_timeout_seconds"]),
+        )
     raw_count = parsed_count = skipped_count = 0
     items: list[MarketItem] = []
     for page in range(1, int(source["max_pages"]) + 1):
