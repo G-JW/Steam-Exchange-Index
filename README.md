@@ -72,7 +72,7 @@ pytest -q
 
 ## ntfy
 
-将完整 topic URL 放进 `NTFY_URL`。当 I10 同时满足多个阈值时，只选择数值最低、级别最高的一项。同级通知在冷却期内不会重复；若 `notify_on_level_upgrade` 开启，更高级别可绕过冷却。开启 `daily_report` 后，未达到阈值时也会发送日报。
+将完整 topic URL 放进 `NTFY_URL`。默认 `daily_report: true`，因此每次成功计算后都会发送通知。当 I10 同时满足多个阈值时，只选择数值最低、级别最高的一项。同级阈值提醒在冷却期内不会重复；若阈值提醒处于冷却期，本次仍会发送普通日报。若 `notify_on_level_upgrade` 开启，更高级别可绕过冷却并发送对应的高优先级提醒。
 
 ## GitHub Actions
 

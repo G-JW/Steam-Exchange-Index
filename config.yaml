@@ -54,7 +54,7 @@ history:
 notification:
   enabled: true
   provider: ntfy
-  daily_report: false
+  daily_report: true
   default_priority: 3
   thresholds:
     - value: 0.73

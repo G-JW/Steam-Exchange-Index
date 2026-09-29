@@ -33,3 +33,7 @@ def test_bind_endpoint_must_use_https(config: dict) -> None:
     bad["data_source"]["bind_ip_endpoint"] = "http://example.invalid"
     with pytest.raises(ConfigError, match="bind_ip_endpoint"):
         validate_config(bad)
+
+
+def test_daily_report_is_enabled_by_default(config: dict) -> None:
+    assert config["notification"]["daily_report"] is True
