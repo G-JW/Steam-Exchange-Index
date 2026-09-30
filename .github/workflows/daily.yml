@@ -2,7 +2,7 @@ name: Daily Steam Exchange Index
 
 on:
   schedule:
-    - cron: "40 15 * * *"
+    - cron: "30 4 * * *"
   workflow_dispatch:
 
 permissions:
