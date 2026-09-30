@@ -132,7 +132,7 @@ I20 = 0.7913
 
 ## GitHub Actions
 
-工作流位于 `.github/workflows/daily.yml`，每天 UTC 15:40（北京时间约 23:40）自动运行，也可以在 Actions 页面手动触发。
+工作流位于 `.github/workflows/daily.yml`，每天 UTC 4:30（北京时间约 12:30）自动运行，也可以在 Actions 页面手动触发。
 
 仓库需要配置以下 Actions Secrets：
 
